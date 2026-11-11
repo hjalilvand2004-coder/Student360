@@ -23,20 +23,32 @@ Invoke-WebRequest -Uri $embedUrl -OutFile $embedZip -MaximumRetryCount 3 -RetryI
 Expand-Archive -Path $embedZip -DestinationPath "$pkg\runtime" -Force
 
 # ===== 2) فعال‌سازی site-packages و نصب pip =====
+# نکته: فایل ._pth را از صفر بازنویسی می‌کنیم (Add-Content در صورت نبود newline
+# انتهای فایل، خط‌ها را به هم می‌چسباند و مسیرها نادیده گرفته می‌شوند)
 $pth = "$pkg\runtime\python311._pth"
-Write-Host "==> Patching python311._pth ..."
-$pthLines = [System.IO.File]::ReadAllText($pth)
-if ($pthLines -notmatch "import site") {
-    Add-Content -Path $pth -Value "Lib\site-packages`r`nimport site"
-}
+Write-Host "==> Rewriting python311._pth ..."
+$pthContent = "python311.zip`r`n.`r`nLib\site-packages`r`nimport site`r`n"
+[System.IO.File]::WriteAllText($pth, $pthContent, [System.Text.Encoding]::ASCII)
+Get-Content $pth | ForEach-Object { Write-Host "    _pth line: [$_]" }
 
 $getPip = Join-Path $build "get-pip.py"
 Invoke-WebRequest -Uri "https://bootstrap.pypa.io/get-pip.py" -OutFile $getPip -MaximumRetryCount 3 -RetryIntervalSec 5
 $py = "$pkg\runtime\python.exe"
 
 Write-Host "==> Installing pip into embedded Python ..."
-& $py $getPip --no-warn-script-location --no-cache-dir
+& $py $getPip --no-warn-script-location --no-cache-dir --no-input
 if ($LASTEXITCODE -ne 0) { throw "get-pip failed with exit code $LASTEXITCODE" }
+
+Write-Host "==> Python diagnostics:"
+& $py -c "import sys, sysconfig; print('PREFIX:', sys.prefix); print('SYSPATHS:', sys.path); print('PURELIB:', sysconfig.get_paths().get('purelib'))"
+if (Test-Path "$pkg\runtime\Lib\site-packages") {
+    Get-ChildItem "$pkg\runtime\Lib\site-packages" | Select-Object -First 15 | ForEach-Object { Write-Host "    site-packages: $($_.Name)" }
+} else {
+    Write-Host "    WARNING: runtime\Lib\site-packages does not exist!"
+}
+
+& $py -m pip --version
+if ($LASTEXITCODE -ne 0) { throw "pip module not importable after get-pip (exit $LASTEXITCODE)" }
 
 $env:PIP_DISABLE_PIP_VERSION_CHECK = "1"
 $env:PIP_DEFAULT_TIMEOUT = "180"
