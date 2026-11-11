@@ -1,11 +1,16 @@
 # app/main.py
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 import logging
+import os
 import traceback
 from sqlalchemy import inspect, text
+
+# مسیر فرانت‌اند ساخته‌شده (در حالت پرتیبل توسط launch_portable.py تنظیم می‌شود)
+FRONTEND_DIST = os.getenv("FRONTEND_DIST", "")
 from app.core.database import engine  # فرض بر این است که engine در این مسیر تعریف شده است
 
 from app.api.routes_schedule import router as schedule_router
@@ -129,6 +134,10 @@ app.include_router(slot_times_router)
 # ===== اندپوینت ریشه =====
 @app.get("/")
 def root():
+    # در حالت پرتیبل، فرانت‌اند از همین مسیر سرو می‌شود
+    index_file = os.path.join(FRONTEND_DIST, "index.html") if FRONTEND_DIST else ""
+    if index_file and os.path.isfile(index_file):
+        return FileResponse(index_file)
     return {
         "service": "Intelligent University Scheduler",
         "version": app.version,
@@ -158,3 +167,22 @@ async def global_exception_handler(request: Request, exc: Exception):
             "error": str(exc)
         }
     )
+
+
+# ===== سرو فرانت‌اند در حالت پرتیبل (باید در انتها ثبت شود تا مسیرهای API را نپوشاند) =====
+if FRONTEND_DIST and os.path.isdir(FRONTEND_DIST):
+    assets_dir = os.path.join(FRONTEND_DIST, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="frontend-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def spa_fallback(full_path: str):
+        # فایل‌های استاتیک فرانت‌اند (فاوآیکون و ...) یا index.html برای مسیرهای SPA
+        if full_path:
+            candidate = os.path.normpath(os.path.join(FRONTEND_DIST, full_path))
+            # جلوگیری از خروج از پوشه (path traversal)
+            if candidate.startswith(os.path.normpath(FRONTEND_DIST)) and os.path.isfile(candidate):
+                return FileResponse(candidate)
+        return FileResponse(os.path.join(FRONTEND_DIST, "index.html"))
+
+    logger.info(f"🌐 فرانت‌اند از مسیر «{FRONTEND_DIST}» سرو می‌شود.")

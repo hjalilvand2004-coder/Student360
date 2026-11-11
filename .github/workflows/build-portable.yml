@@ -1,0 +1,79 @@
+name: Build Portable (Windows)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-portable:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+
+      - name: Assemble portable package
+        shell: pwsh
+        run: ./scripts/build_portable.ps1
+
+      - name: Verify package structure
+        shell: pwsh
+        run: |
+          Get-ChildItem build/Student360-Portable | Format-Table Name
+          if (-not (Test-Path build/Student360-Portable/runtime/python.exe)) { throw "python.exe missing" }
+          if (-not (Test-Path build/Student360-Portable/app/app/main.py)) { throw "backend missing" }
+          if (-not (Test-Path build/Student360-Portable/app/launch_portable.py)) { throw "launcher missing" }
+          if (-not (Test-Path build/Student360-Portable/web/index.html)) { throw "frontend dist missing" }
+          if (-not (Test-Path build/Student360-Portable/data/university_scheduler.db)) { Write-Host "warn: no seed database" }
+          if (-not (Test-Path build/Student360-Portable/start_student360.bat)) { throw "start bat missing" }
+
+      - name: Create ZIP
+        shell: pwsh
+        run: |
+          Compress-Archive -Path build/Student360-Portable -DestinationPath build/Student360-Portable-Windows.zip -Force
+          $zip = Get-Item build/Student360-Portable-Windows.zip
+          Write-Host "ZIP size: $([math]::Round($zip.Length/1MB,1)) MB"
+
+      - name: Publish Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Student360 ${{ github.ref_name }} — نسخه پرتیبل (بدون نیاز به نصب)
+          body: |
+            ## Student360 — نسخه پرتیبل ویندوز
+
+            این نسخه **بدون نیاز به نصب پایتون، PyCharm یا هرگونه وابستگی** روی هر ویندوز ۶۴بیتی اجرا می‌شود.
+
+            ### روش اجرا
+            1. فایل `Student360-Portable-Windows.zip` را دانلود و Extract کنید.
+            2. روی `start_student360.bat` دوبار کلیک کنید.
+            3. مرورگر به‌صورت خودکار روی `http://127.0.0.1:8000` باز می‌شود.
+
+            ### محتویات بسته
+            - پایتون داخلی (Embedded Python 3.11) + تمام کتابخانه‌ها (FastAPI، OR-Tools و ...)
+            - فرانت‌اند ساخته‌شده (React + Vite)
+            - دیتابیس SQLite با داده‌های موجود (`data/university_scheduler.db`)
+
+            ### نکات
+            - برای خروج، پنجره کنسول را ببندید (یا Ctrl+C).
+            - پشتیبان‌گیری: از فایل `data/university_scheduler.db` کپی بگیرید.
+            - راهنمای کامل داخل بسته: `README.txt`
+          files: build/Student360-Portable-Windows.zip
+          generate_release_notes: true
