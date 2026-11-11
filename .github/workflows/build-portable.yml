@@ -59,12 +59,16 @@ jobs:
           body: |
             ## Student360 — نسخه پرتیبل ویندوز
 
+            > ❗ **فایل درست را دانلود کنید:** فقط فایل `Student360-Portable-Windows.zip` (حدود ۲۸۰MB) را دانلود کنید — **نه** «Source code (zip)».
+            > ❗ بعد از دانلود، **کل ZIP را Extract کنید** و فایل bat را **از داخل پوشه‌ی استخراج‌شده** اجرا کنید — هرگز از داخل خود ZIP اجرا نکنید.
+
             این نسخه **بدون نیاز به نصب پایتون، PyCharm یا هرگونه وابستگی** روی هر ویندوز ۶۴بیتی اجرا می‌شود.
 
             ### روش اجرا
-            1. فایل `Student360-Portable-Windows.zip` را دانلود و Extract کنید.
-            2. روی `start_student360.bat` دوبار کلیک کنید.
-            3. مرورگر به‌صورت خودکار روی `http://127.0.0.1:8000` باز می‌شود.
+            1. فایل `Student360-Portable-Windows.zip` را دانلود کنید.
+            2. راست‌کلیک ← **Extract All...**
+            3. وارد پوشه‌ی `Student360-Portable` شوید و روی `start_student360.bat` دوبار کلیک کنید.
+            4. مرورگر به‌صورت خودکار روی `http://127.0.0.1:8000` باز می‌شود.
 
             ### محتویات بسته
             - پایتون داخلی (Embedded Python 3.11) + تمام کتابخانه‌ها (FastAPI، OR-Tools و ...)
@@ -74,6 +78,6 @@ jobs:
             ### نکات
             - برای خروج، پنجره کنسول را ببندید (یا Ctrl+C).
             - پشتیبان‌گیری: از فایل `data/university_scheduler.db` کپی بگیرید.
-            - راهنمای کامل داخل بسته: `README.txt`
+            - اگر خطای «The system cannot find the path specified» دیدید: فایل‌ها کامل Extract نشده‌اند — راهنمای داخل بسته (`README.txt`) را ببینید.
           files: build/Student360-Portable-Windows.zip
           generate_release_notes: true

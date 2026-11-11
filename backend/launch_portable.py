@@ -25,7 +25,70 @@ APP_DIR = os.path.join(ROOT, "app")
 WEB_DIR = os.path.join(ROOT, "web")
 DATA_DIR = os.path.join(ROOT, "data")
 
-os.makedirs(DATA_DIR, exist_ok=True)
+
+def preflight():
+    """بررسی‌های پیش‌از-اجرا با پیام‌های واضح فارسی؛ در صورت مشکل با کد 1 خارج می‌شود."""
+    problems = []
+
+    if not os.path.isfile(os.path.join(APP_DIR, "app", "main.py")):
+        problems.append(f"پوشه بک‌اند پیدا نشد: {APP_DIR}")
+    if not os.path.isfile(os.path.join(WEB_DIR, "index.html")):
+        problems.append(f"فایل‌های فرانت‌اند پیدا نشدند: {WEB_DIR}")
+    if not os.path.isfile(os.path.join(APP_DIR, "requirements.txt")):
+        problems.append(f"فایل requirements.txt پیدا نشد: {APP_DIR}")
+
+    temp_marker = os.environ.get("TEMP", "").lower()
+    root_lower = ROOT.lower()
+    if temp_marker and root_lower.startswith(temp_marker):
+        problems.append(
+            "به نظر می‌رسد این فایل از داخل خود ZIP اجرا شده است.\n"
+            "   ابتدا کل فایل ZIP را Extract کنید (راست‌کلیک ← Extract All)،\n"
+            "   سپس داخل پوشه‌ی استخراج‌شده فایل start_student360.bat را اجرا کنید."
+        )
+
+    if problems:
+        print("\n" + "=" * 62)
+        print("  ❌ بسته پرتیبل کامل نیست و نمی‌تواند اجرا شود:")
+        print("=" * 62)
+        for index, problem in enumerate(problems, 1):
+            print(f"  {index}. {problem}")
+        print("-" * 62)
+        print("  راهنمای صحیح اجرا:")
+        print("   1) از صفحه Releases گیت‌هاب، فایل Student360-Portable-Windows.zip")
+        print("      (حدود 280 مگابایت) را دانلود کنید — نه فایل Source code (zip).")
+        print("   2) کل ZIP را Extract کنید و وارد پوشه‌ی Student360-Portable شوید.")
+        print("   3) روی start_student360.bat دوبار کلیک کنید.")
+        print("   4) پوشه را در مسیر قابل‌نوشتار قرار دهید (مثلاً دسکتاپ یا D:\\)،")
+        print("      نه داخل C:\\Program Files و نه یکپارچه با OneDrive.")
+        print("=" * 62)
+        try:
+            input("\nبرای بستن، Enter بزنید...")
+        except EOFError:
+            pass
+        sys.exit(1)
+
+
+preflight()
+
+try:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    # تست قابل‌نوشتار بودن مسیر برای دیتابیس و فایل‌های آپلودی
+    probe = os.path.join(DATA_DIR, ".write_test")
+    with open(probe, "w") as probe_file:
+        probe_file.write("ok")
+    os.remove(probe)
+except (PermissionError, OSError) as exc:
+    print("\n" + "=" * 62)
+    print(f"  ❌ پوشه بسته قابل‌نوشتن نیست ({ROOT}): {exc}")
+    print("  لطفاً بسته را در یک مسیر معمولی مثل دسکتاپ یا D:\\ Extract کنید،")
+    print("  نه داخل Program Files یا پوشه‌های سیستمی.")
+    print("=" * 62)
+    try:
+        input("\nبرای بستن، Enter بزنید...")
+    except EOFError:
+        pass
+    sys.exit(1)
+
 os.chdir(ROOT)  # تا مسیرهای نسبی (مثل فایل‌های آپلودی) داخل بسته بمانند
 
 DB_PATH = os.path.join(DATA_DIR, "university_scheduler.db")
